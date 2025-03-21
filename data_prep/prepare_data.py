@@ -5,7 +5,7 @@ from torch.utils.data import Dataset,DataLoader
 from alive_progress import alive_bar
 import numpy as np
 from torch.utils.data import random_split
-
+import pickle as pkl
 
 # here we do
 
@@ -59,40 +59,49 @@ def get_data(path,Time_slot,window,batch_size):
 
     class my_dataset(Dataset):
         def __init__(self,path,Time_slot,window):
-            data=pd.read_csv(path)
+            if path!=None:
+                data=pd.read_csv(path)
 
-            data[['date','time']]=data['date'].str.split(expand=True)
-            dates=[]
-            Time_slot=3
-            window=10
-            for i in data['date']:
-                if i.split()[0]  not in dates:  
-                    dates.append(i.split()[0])
-            data_x=[]
-            data_y=[]
+                data[['date','time']]=data['date'].str.split(expand=True)
+                dates=[]
+                Time_slot=3
+                window=10
+                for i in data['date']:
+                    if i.split()[0]  not in dates:  
+                        dates.append(i.split()[0])
+                data_x=[]
+                data_y=[]
 
-            with alive_bar(len(dates)) as bar:
-                for i in dates:
+                with alive_bar(len(dates)) as bar:
+                    for i in dates:
 
-                    temp=sloted_data(data[data['date']==i],Time_slot)
-                    o=prepare_series(temp,window)
-                    data_x.append(o[0])
-                    data_y.append(o[1])
+                        temp=sloted_data(data[data['date']==i],Time_slot)
+                        o=prepare_series(temp,window)
+                        data_x.append(o[0])
+                        data_y.append(o[1])
 
-                    bar()
+                        bar()
 
-            self.data_x=torch.tensor(np.vstack(data_x),requires_grad=True)
-            self.data_y=torch.tensor(np.vstack(data_y),requires_grad=True)
+                self.data_x=torch.tensor(np.vstack(data_x),requires_grad=True,dtype=torch.float32)
+                self.data_y=torch.tensor(np.vstack(data_y),requires_grad=True,dtype=torch.float32)
+
+                pkl.dump(self.data_x,open('saved_data/train_data_x.pkl',"wb"))
+                pkl.dump(self.data_y,open('saved_data/train_data_y.pkl',"wb"))
+            
+            else:
+                self.data_x=pkl.load(open('saved_data/train_data_x.pkl','rb'))
+                self.data_y=pkl.load(open('saved_data/train_data_y.pkl','rb'))
+
         
         def __len__(self):
-            return self.x.shape[0]
+            return self.data_x.shape[0]
 
         def __getitem__(self, index):
             return self.data_x[index],self.data_y[index]
     
     dataset=my_dataset(path,Time_slot,window)
 
-    train_data,test_data=random_split(dataset,[0.8,0.2])
+    train_data,test_data=random_split(dataset,[0.5,0.5])
     train_DataLoader=DataLoader(train_data,batch_size)
     test_DataLoader=DataLoader(test_data,batch_size)
 
